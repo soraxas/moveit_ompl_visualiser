@@ -31,9 +31,12 @@
 std::default_random_engine get_rand((unsigned int)time(0));
 
 
+
 namespace moveit_ompl_visualiser {
 
-    inline std_msgs::ColorRGBA color(float r, float g, float b, float a=1.0f) {
+    namespace rvt = rviz_visual_tools;
+
+    inline std_msgs::ColorRGBA color(double r, double g, double b, double a=1.0) {
         std_msgs::ColorRGBA msg;
         msg.r = r;
         msg.g = g;
@@ -49,7 +52,6 @@ namespace moveit_ompl_visualiser {
 
     ros::NodeHandle nh_(moveit_ompl_visualiser::topic_ns);
 //    std::shared_ptr<ros::Subscriber> sub_ = std::make_shared<ros::Subscriber>(
-//            nh_.subscribe(moveit_ompl_visualiser::topic_ns + "/enabled", 1000, cb_enable_vis_));
     ros::Subscriber sub_ = nh_.subscribe("enabled", 100, cb_enable_vis_);
 
     std::shared_ptr<ros::Publisher> marker_pub;
@@ -69,27 +71,24 @@ namespace moveit_ompl_visualiser {
     std::vector<visualization_msgs::Marker> displayed_sol_;
 
     bool enabled = false;
-    static void cb_enable_vis_(const std_msgs::Bool::ConstPtr &msg) {
-        enabled = msg->data;
-        ROS_INFO("moveit_ompl_visualiser -> ", msg->data ? "enabled" : "disabled");
-//        nh_.getParam("link_name", LINK_NAME_);
-//        nh_.getParam("/moveit_visualize_data_node/moveit_ompl_visualiser/link_name", LINK_NAME_);
+    static void cb_enable_vis_(const std_msgs::Bool::ConstPtr &msg=nullptr) {
+        if (msg) {
+            enabled = msg->data;
+        } else {
+            enabled = true;  // default to true
+        }
+        ROS_INFO_NAMED("moveit_ompl_visualiser", "moveit_ompl_visualiser -> %s", enabled ? "enabled" : "disabled");
         ros::param::get("/moveit_visualize_data_node/moveit_ompl_visualiser/link_name", LINK_NAME_);
     }
 
     void set_context(ompl_interface::ModelBasedPlanningContext *context) {
         context_ = context;
+        /////////////
         ompl_state_space_ = context->getOMPLStateSpace();
-
         const auto &planning_scene = context->getPlanningScene();
         robot_state_ = std::make_shared<robot_state::RobotState>(planning_scene->getCurrentState());
-        /////////////
         REFERENCE_FRAME_ = planning_scene->getPlanningFrame();
         /////////////
-
-
-//        last_vis_arr_ = std::make_shared<visualization_msgs::MarkerArray>();
-
         clear_markers();
     }
 
@@ -100,8 +99,6 @@ namespace moveit_ompl_visualiser {
             ROS_WARN("Context has not been set yet! Ignoring...");
             return false;
         }
-//        if (sub_->getNumPublishers() < 1)
-//            return;
         if (!marker_pub) {
             // Create the message publisher and advertise,
             ros::NodeHandle nh_ = ros::NodeHandle();
@@ -126,7 +123,7 @@ namespace moveit_ompl_visualiser {
         return mk;
     }
 
-    void pub_marker_to_markerArray(const std::shared_ptr<ros::Publisher> &pub_,
+    inline void pub_marker_to_markerArray(const std::shared_ptr<ros::Publisher> &pub_,
                                    const visualization_msgs::Marker &mk) {
         visualization_msgs::MarkerArray arr;
         arr.markers.push_back(mk);
@@ -153,19 +150,11 @@ namespace moveit_ompl_visualiser {
         return p_vi;
     }
 
-    void show_node(ompl::base::State *state) {
-        ROS_INFO("Requestingn to show node");
+    void show_node(ompl::base::State *state, double NODE_SIZE, double time_to_live, double r, double g, double b) {
         if (!check_guard())
             return;
-        ROS_INFO("Preparing");
         geometry_msgs::Point p_vi = vertex_state_to_position_msg(
                 state, ompl_state_space_, *robot_state_, LINK_NAME_);
-
-
-        double NODE_SIZE = 0.0008;
-        double EDGE_SIZE = 0.0008;
-        NODE_SIZE = 0.1;
-        EDGE_SIZE = 0.005;
 
         // fill in a new visualization message (MarkerArray)
         visualization_msgs::Marker mk = marker_template_("sampled vertex");
@@ -173,10 +162,71 @@ namespace moveit_ompl_visualiser {
         mk.action = visualization_msgs::Marker::ADD;
         mk.pose.position = p_vi;
         mk.scale.x = mk.scale.y = mk.scale.z = NODE_SIZE;
-        mk.color = color(0, 1, .8);
-        displayed_mks_.push_back(mk);  // book keeping
+        mk.color = color(r, g, b);
+        mk.lifetime = ros::Duration(time_to_live);
+        if (time_to_live == 0)
+            displayed_mks_.push_back(mk);  // book keeping
 
         pub_marker_to_markerArray(marker_pub, mk);
+    }
+
+    void show_sampled_state(ompl::base::State * state) {
+        show_node(state, 0.02, 2,1, 0, 0);
+    }
+
+    void show_sampled_robot_state(ompl::base::State * state) {
+        /*
+         * NOTE You must ADD a new display in RVIZ to view the sampled robot state,
+         * under the "display_robot_state" channel.
+         * */
+        // copy state to robot state
+        vertex_state_to_position_msg(state, ompl_state_space_, *robot_state_, LINK_NAME_);
+        // copy it to prevent changing
+        auto robot_state1 = std::make_shared<moveit::core::RobotState>(*robot_state_);
+
+        /////////////////////////////////////////////////////
+        moveit_visual_tools::MoveItVisualTools visual_tools(LINK_NAME_);
+        visual_tools.loadRobotStatePub("/display_robot_state");
+        visual_tools.enableBatchPublishing();
+
+        const std::string PLANNING_GROUP = "panda_arm";
+        const moveit::core::JointModelGroup* joint_model_group = robot_state_->getJointModelGroup(PLANNING_GROUP);
+        visual_tools.publishRobotState(robot_state1);
+
+        visual_tools.trigger();
+        ROS_INFO("post");
+        /////////////////////////////////////////////////////
+    }
+
+    void show_sampled_robot_state_traj(ompl::base::State * state1, ompl::base::State * state2) {
+        /*
+         * NOTE You must ADD a new display in RVIZ to view the sampled robot state,
+         * under the "display_robot_state" channel.
+         * */
+        // copy state to robot state
+        vertex_state_to_position_msg(state1, ompl_state_space_, *robot_state_, LINK_NAME_);
+        auto robot_state1 = std::make_shared<moveit::core::RobotState>(*robot_state_);
+        //
+        vertex_state_to_position_msg(state2, ompl_state_space_, *robot_state_, LINK_NAME_);
+        auto robot_state2 = std::make_shared<moveit::core::RobotState>(*robot_state_);
+
+        /////////////////////////////////////////////////////
+        moveit_visual_tools::MoveItVisualTools visual_tools(LINK_NAME_);
+        visual_tools.loadRobotStatePub("/display_robot_state");
+        visual_tools.enableBatchPublishing();
+
+        const std::string PLANNING_GROUP = "panda_arm";
+        const moveit::core::JointModelGroup* joint_model_group = robot_state_->getJointModelGroup(PLANNING_GROUP);
+
+
+        robot_trajectory::RobotTrajectory traj(context_->getRobotModel(), PLANNING_GROUP);
+        traj.addSuffixWayPoint(robot_state1, .5);
+        traj.addSuffixWayPoint(robot_state2, .5);
+
+        visual_tools.publishTrajectoryLine(traj, joint_model_group);
+
+        visual_tools.trigger();
+        /////////////////////////////////////////////////////
     }
 
     void show_edge(ompl::base::State *state1, ompl::base::State *state2, double EDGE_SIZE) {
@@ -216,15 +266,22 @@ namespace moveit_ompl_visualiser {
         line_list.scale.x = EDGE_SIZE;
         line_list.color = color(0, .95, .2);
 
-        for (auto &state: states)
-            line_list.points.push_back(vertex_state_to_position_msg(
-                    state, ompl_state_space_, *robot_state_, LINK_NAME_));
+        std::shared_ptr<geometry_msgs::Point> _last_displayed_pt;
+        for (auto &state: states) {
+            auto display_state = vertex_state_to_position_msg(
+                        state, ompl_state_space_, *robot_state_, LINK_NAME_);
+            if (_last_displayed_pt) {
+                line_list.points.push_back(*_last_displayed_pt);
+                line_list.points.push_back(display_state);
+            }
+            _last_displayed_pt = std::make_shared<geometry_msgs::Point>(
+                    display_state);
+        }
 
         pub_marker_to_markerArray(marker_pub, line_list);
 
         displayed_sol_.push_back(line_list);  // book keeping
     }
-
 
     void clear_markers() {
         if (!check_guard())
@@ -239,46 +296,38 @@ namespace moveit_ompl_visualiser {
         displayed_mks_.clear();
     }
 
+    void show_planner_data(ompl_interface::ModelBasedPlanningContext *context) {
+        if (!context) {  // use default context
+            if (!check_guard())
+                return;
+            context = context_;
+        }
+        size_t item_num_to_remove = 0;
+        auto to_be_removed_ = last_vis_arr_;
+        if (to_be_removed_) {
+            // remove previously displayed markers
+            for (auto &&marker: to_be_removed_->markers) {
+                marker.action = visualization_msgs::Marker::DELETE;
+                item_num_to_remove += 1;
+            }
 
-
-
-
-    inline void display_node_data(ompl_interface::ModelBasedPlanningContext *context,
-                                  const std::string &LINK_NAME) {
-
-//        static const std::string LINK_NAME = "panda_link8";
-        // specify the reference frame of the marker (header.frame_id)
-//        std::string REFERENCE_FRAME = "world";
-        // specify the Planning Group, that had been used to generate the samples
-//        std::string PLANNING_GROUP_FOR_ANALYSIS = "panda_arm";
-        // specify the state space factory type (can be trial and error or just print out the factory type that had been used during the last motion plan request)
-//        std::string STATE_SPACE_MODEL = "JointModel";
-
-
-        // use the OMPL data storage functionality to store all the sampled states in graphml and binary format
-        // IMPORTANT: the data is only properly stored, if no parallel plan is used (at the moment)
-        auto simple_setup = context->getOMPLSimpleSetup();
-        const auto &planning_scene = context->getPlanningScene();
-        std::string REFERENCE_FRAME = planning_scene->getPlanningFrame();
-        REFERENCE_FRAME = "world";
-
-
-        ompl::base::PlannerData sampledData(simple_setup->getSpaceInformation());
-        simple_setup->getPlannerData(sampledData);
-        //get planning scene
-        robot_state::RobotState robot_state = planning_scene->getCurrentState();
-
-        ROS_INFO("GK: planning frame %s", planning_scene->getPlanningFrame().c_str());
-
-
+        }
         last_vis_arr_ = std::make_shared<visualization_msgs::MarkerArray>();
 
 
-        unsigned int numV = sampledData.numVertices();
-        unsigned int numE = sampledData.numEdges();
-        ROS_INFO(
-                "Inside data visualizing tool: total number of vertices to be displaced: %i \n",
-                numV);
+        auto simple_setup = context->getOMPLSimpleSetup();
+        const auto &planning_scene = context->getPlanningScene();
+        std::string REFERENCE_FRAME = planning_scene->getPlanningFrame();
+
+        ompl::base::PlannerData plannerData(simple_setup->getSpaceInformation());
+        simple_setup->getPlannerData(plannerData);
+        //get planning scene
+        robot_state::RobotState robot_state = planning_scene->getCurrentState();
+
+
+
+        unsigned int numV = plannerData.numVertices();
+        unsigned int numE = plannerData.numEdges();
 
         const std::shared_ptr<ompl_interface::ModelBasedStateSpace> ompl_state_space = context->getOMPLStateSpace();
 
@@ -289,72 +338,68 @@ namespace moveit_ompl_visualiser {
 
         for (unsigned int i = 0; i < numV; ++i) {
 
-            const ompl::base::State *state = sampledData.getVertex(i).getState();
+            const ompl::base::State *state = plannerData.getVertex(i).getState();
             geometry_msgs::Point p_vi = vertex_state_to_position_msg(
-                    state, ompl_state_space, robot_state, LINK_NAME);
+                    state, ompl_state_space, robot_state, LINK_NAME_);
 
             // for each vertex check also each edge which is going out of this vertex
             std::vector<unsigned int> edgeList;
-            int edgeList_size = sampledData.getEdges(i, edgeList);
-            ROS_DEBUG_NAMED("GK",
-                            "GK:ompl_planner_manager %d number of edges for vertex %d",
-                            edgeList_size, i);
+            int edgeList_size = plannerData.getEdges(i, edgeList);
+
+//            std_msgs::ColorRGBA color_node_= color(0, .8, 0);
+            std_msgs::ColorRGBA color_roadmap= color(0.6, .8, 1.);
+
             for (int j = 0; j < edgeList_size; j++) {
-                visualization_msgs::Marker line_list;
-                line_list.header.stamp = ros::Time();
-                line_list.header.frame_id = REFERENCE_FRAME;
-                line_list.ns = "created edges";
-                line_list.id = get_rand();
+                visualization_msgs::Marker line_list = marker_template_("created edges");
                 line_list.type = visualization_msgs::Marker::LINE_LIST;
                 line_list.action = visualization_msgs::Marker::ADD;
                 line_list.scale.x = EDGE_SIZE;
-                line_list.pose.orientation.w = 1.0;
-                line_list.points.push_back(p_vi);
-                line_list.color.r = 1.0;
-                line_list.color.a = 1.0;
+                line_list.color = color_roadmap;
 
-                const ompl::base::State *state_j = sampledData.getVertex(
+                const ompl::base::State *state_j = plannerData.getVertex(
                         edgeList[j]).getState();
                 geometry_msgs::Point p_vj = vertex_state_to_position_msg(
-                        state_j, ompl_state_space, robot_state, LINK_NAME);
+                        state_j, ompl_state_space, robot_state, LINK_NAME_);
 
+                line_list.points.push_back(p_vi);
                 line_list.points.push_back(p_vj);
                 last_vis_arr_->markers.push_back(line_list);
-
-                ROS_DEBUG_NAMED("GK",
-                                "GK pose for connected vertex number %d towards pose: x:%.5f, y: %.5f, z:%.5f",
-                                i, p_vj.x, p_vj.y, p_vj.z);
             }
-
 
             // fill in a new visualization message (MarkerArray)
             visualization_msgs::Marker mk = marker_template_("sampled vertex");
             mk.type = visualization_msgs::Marker::SPHERE;
             mk.action = visualization_msgs::Marker::ADD;
             mk.pose.position = p_vi;
-            std_msgs::ColorRGBA color_node_green = color(0, .8, 0);
-            mk.color = color_node_green;
+            mk.scale.x = mk.scale.y = mk.scale.z = NODE_SIZE;
+            mk.color = color_roadmap;
             last_vis_arr_->markers.push_back(mk);
 
-            ROS_INFO(
-                    "GK pose for vertex number %d with pose: x:%.5f, y: %.5f, z:%.5f",
-                    i, p_vi.x, p_vi.y, p_vi.z);
 
         }
-        // publish message to visualize the sampled states
+            // publish message to visualize the sampled states
         // wait until someone is actually listening.
         marker_pub->publish(*last_vis_arr_);
-        std::cout << *last_vis_arr_ << std::endl;
+        if (to_be_removed_) {
+            marker_pub->publish(*to_be_removed_);
+            to_be_removed_->markers.clear();
+        }
 
-        ROS_INFO("OMPL Planner Manager: finished visualizing sampled position");
-        ROS_INFO("published in %s",
-                 moveit_ompl_visualiser::marker_array_topic.c_str());
+//        // remove from the message
+//        if (item_num_to_remove > 0) {
+//            auto &_mks = last_vis_arr_->markers;
+//            _mks.erase(_mks.begin(), _mks.begin() + item_num_to_remove);
+//        }
     }
 
 
-
-    void add_planned_context(ompl_interface::ModelBasedPlanningContext *context) {
-
+    void display_planned_context(ompl_interface::ModelBasedPlanningContext *context) {
+        if (!enabled && ros::param::has("/moveit_visualize_data_node/moveit_ompl_visualiser/link_name")) {
+            // a workaround to make this periodically (every time it finishes a sol) check for whether
+            // vis node is present.
+            cb_enable_vis_();
+            enabled = true;
+        }
         if (!check_guard(false))
             return;
 
@@ -365,19 +410,20 @@ namespace moveit_ompl_visualiser {
             marker_pub->publish(*last_vis_arr_);
         }
 
-        static const std::string LINK_NAME = "panda_link8";
-        moveit_visual_tools::MoveItVisualTools visual_tools(LINK_NAME);
+        moveit_visual_tools::MoveItVisualTools visual_tools(LINK_NAME_);
         rviz_visual_tools::RemoteControlPtr remote_ctrl = visual_tools.getRemoteControl();
 
 
 //        while(!remote_ctrl->getStop()) {
-        display_node_data(context, LINK_NAME);
-        visual_tools.prompt(
-                "Press 'next' in the RvizVisualToolsGui window to visualize the next samples and delete the current markers");
+        show_planner_data(context);
+
+        bool pause_at_sol;
+        ros::param::get("/moveit_visualize_data_node/moveit_ompl_visualiser/pause_at_solution", pause_at_sol);
+        if (pause_at_sol)
+            visual_tools.prompt(
+                    "Press 'next' in the RvizVisualToolsGui window to visualize the next samples and delete the current markers");
         visual_tools.deleteAllMarkers();
 //        }
-
     }
-
 
 };

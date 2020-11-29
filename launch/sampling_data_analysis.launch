@@ -2,5 +2,6 @@
   <node name="moveit_visualize_data_node" pkg="moveit_ompl_visualiser" type="moveit_ompl_visualiser_node" respawn="false" output="screen">
       <param name="/planning_plugin" value="ompl_interface/OMPLPlanner"/>
       <param name="/moveit_ompl_visualiser/link_name" value="panda_link8"  type="str"/>
+      <param name="/moveit_ompl_visualiser/pause_at_solution" value="false"  type="bool"/>
   </node>
 </launch>

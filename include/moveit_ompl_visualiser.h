@@ -28,8 +28,6 @@ namespace moveit_ompl_visualiser {
     // a pointer to process incoming planning context
 
 
-
-
     const std::string topic_ns = "moveit_ompl_visualiser";
 //    const std::string marker_array_topic = topic_ns + "/rviz_visual_tools";
 //    const std::string marker_array_topic ="/rviz_visual_tools";
@@ -37,15 +35,6 @@ namespace moveit_ompl_visualiser {
 //    const std::string marker_array_topic ="/moveit_ompl_visualiser_markers";
 
 //    const char *topic_ns = "/moveit_ompl_visualiser";
-
-    std::vector<ompl_interface::ModelBasedPlanningContextPtr> stored_planning_context;
-
-
-    planning_context_process_ptr processor;
-
-
-
-    void add_planned_context(ompl_interface::ModelBasedPlanningContext *context);
 
 //    // Added visualization function for sampled states by Gabriel Koenig
 //    void visualizeSampledStates(const ompl_interface::ModelBasedPlanningContext *context,
@@ -55,11 +44,13 @@ namespace moveit_ompl_visualiser {
 //                              const std::string& state_space_model,
 //                              const char *filename_to_load);
 
-
     void set_context(ompl_interface::ModelBasedPlanningContext *context);
 
-
-    void show_node(ompl::base::State *);
+    void show_planner_data(ompl_interface::ModelBasedPlanningContext *context=nullptr);
+    void display_planned_context(ompl_interface::ModelBasedPlanningContext *context);
+    void show_node(ompl::base::State *, double NODE_SIZE=0.005, double time_to_live=0, double r=0., double g=1., double b=.8);
+    void show_sampled_state(ompl::base::State * state);
+    void show_sampled_robot_state(ompl::base::State * state);
     void show_edge(ompl::base::State*, ompl::base::State*, double edge_size=0.008);
 
     template<class T>
