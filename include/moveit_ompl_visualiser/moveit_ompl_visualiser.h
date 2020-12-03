@@ -2,7 +2,7 @@
 #define ROS_MASTER_MOVEIT_OMPL_VISUALISER_H
 
 #include <moveit/ompl_interface/model_based_planning_context.h>
-
+#include <soraxas_cpp_toolbox/colour.h>
 
 /*
  You can store ompl data with:
@@ -46,12 +46,15 @@ namespace moveit_ompl_visualiser {
 
     void set_context(ompl_interface::ModelBasedPlanningContext *context);
 
-    void show_planner_data(ompl_interface::ModelBasedPlanningContext *context=nullptr);
+    void show_planner_data(double alpha=1.0, ompl_interface::ModelBasedPlanningContext *context=nullptr);
+    inline void show_planner_data(ompl_interface::ModelBasedPlanningContext *context) {
+        show_planner_data(1.0, context);
+    }
     void display_planned_context(ompl_interface::ModelBasedPlanningContext *context);
-    void show_node(ompl::base::State *, double NODE_SIZE=0.005, double time_to_live=0, double r=0., double g=1., double b=.8);
-    void show_sampled_state(ompl::base::State * state);
-    void show_sampled_robot_state(ompl::base::State * state);
-    void show_edge(ompl::base::State*, ompl::base::State*, double edge_size=0.008);
+    void show_node(const ompl::base::State *, double NODE_SIZE=0.005, double time_to_live=0, double r=0., double g=1., double b=.8);
+    void show_sampled_state(const ompl::base::State * state);
+    void show_sampled_robot_state(const ompl::base::State * state);
+    void show_edge(const ompl::base::State*, const ompl::base::State*, double edge_size=0.008, Colour c=Colour(0, .5, .5));
 
     template<class T>
     void show_edge(const T t) {
