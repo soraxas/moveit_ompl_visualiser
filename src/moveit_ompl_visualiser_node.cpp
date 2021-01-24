@@ -1,8 +1,7 @@
 #include <ros/ros.h>
 
 #include <std_msgs/Bool.h>
-#include "moveit_ompl_visualiser.h"
-//#include "moveit_ompl_visualiser/moveit_ompl_visualiser.h"
+#include "moveit_ompl_visualiser/moveit_ompl_visualiser.h"
 
 #include <signal.h>
 #include <unistd.h>

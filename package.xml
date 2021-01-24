@@ -39,8 +39,8 @@
   <exec_depend>moveit_visual_tools</exec_depend>
   <build_depend>moveit_ros_planning_interface</build_depend>
   <exec_depend>moveit_ros_planning_interface</exec_depend>
-  <build_depend>moveit_planners_ompl</build_depend>
-  <exec_depend>moveit_planners_ompl</exec_depend>
+  <build_depend>moveit_core</build_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

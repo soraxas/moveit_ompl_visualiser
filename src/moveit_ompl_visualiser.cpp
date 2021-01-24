@@ -1,4 +1,4 @@
-#include "moveit_ompl_visualiser.h"
+#include "moveit_ompl_visualiser/moveit_ompl_visualiser.h"
 
 #include <std_msgs/Bool.h>
 #include <ompl/base/PlannerData.h>
@@ -35,6 +35,8 @@ std::default_random_engine get_rand((unsigned int)time(0));
 namespace moveit_ompl_visualiser {
 
     namespace rvt = rviz_visual_tools;
+
+    Colour EDGE_DEFAULT_COLOUR(0, .5, .5);
 
     inline std_msgs::ColorRGBA color(double r, double g, double b, double a=1.0) {
         std_msgs::ColorRGBA msg;
@@ -150,7 +152,7 @@ namespace moveit_ompl_visualiser {
         return p_vi;
     }
 
-    void show_node(ompl::base::State *state, double NODE_SIZE, double time_to_live, double r, double g, double b) {
+    void show_node(const ompl::base::State *state, double NODE_SIZE, double time_to_live, double r, double g, double b) {
         if (!check_guard())
             return;
         geometry_msgs::Point p_vi = vertex_state_to_position_msg(
@@ -170,11 +172,11 @@ namespace moveit_ompl_visualiser {
         pub_marker_to_markerArray(marker_pub, mk);
     }
 
-    void show_sampled_state(ompl::base::State * state) {
+    void show_sampled_state(const ompl::base::State * state) {
         show_node(state, 0.02, 2,1, 0, 0);
     }
 
-    void show_sampled_robot_state(ompl::base::State * state) {
+    void show_sampled_robot_state(const ompl::base::State * state) {
         /*
          * NOTE You must ADD a new display in RVIZ to view the sampled robot state,
          * under the "display_robot_state" channel.
@@ -198,7 +200,7 @@ namespace moveit_ompl_visualiser {
         /////////////////////////////////////////////////////
     }
 
-    void show_sampled_robot_state_traj(ompl::base::State * state1, ompl::base::State * state2) {
+    void show_sampled_robot_state_traj(const ompl::base::State * state1, const ompl::base::State * state2) {
         /*
          * NOTE You must ADD a new display in RVIZ to view the sampled robot state,
          * under the "display_robot_state" channel.
@@ -229,7 +231,7 @@ namespace moveit_ompl_visualiser {
         /////////////////////////////////////////////////////
     }
 
-    void show_edge(ompl::base::State *state1, ompl::base::State *state2, double EDGE_SIZE) {
+    void show_edge(const ompl::base::State *state1, const ompl::base::State *state2, double EDGE_SIZE, const Colour c) {
         if (!state1 || !state2) return;
         if (!check_guard())
             return;
@@ -238,7 +240,7 @@ namespace moveit_ompl_visualiser {
         line_list.type = visualization_msgs::Marker::LINE_LIST;
         line_list.action = visualization_msgs::Marker::ADD;
         line_list.scale.x = EDGE_SIZE;
-        line_list.color = color(0, .5, .5);
+        line_list.color = c;
 
         line_list.points.push_back(vertex_state_to_position_msg(
                 state1, ompl_state_space_, *robot_state_, LINK_NAME_));
@@ -250,7 +252,7 @@ namespace moveit_ompl_visualiser {
         displayed_mks_.push_back(line_list);  // book keeping
     }
 
-    void show_solution(std::vector<ompl::base::State *> states, double EDGE_SIZE) {
+    void show_solution(const std::vector<ompl::base::State *> states, double EDGE_SIZE) {
         if (!check_guard())
             return;
         // always clear previous solutions
@@ -296,7 +298,7 @@ namespace moveit_ompl_visualiser {
         displayed_mks_.clear();
     }
 
-    void show_planner_data(ompl_interface::ModelBasedPlanningContext *context) {
+    void show_planner_data(double alpha, ompl_interface::ModelBasedPlanningContext *context) {
         if (!context) {  // use default context
             if (!check_guard())
                 return;
@@ -329,6 +331,7 @@ namespace moveit_ompl_visualiser {
         unsigned int numV = plannerData.numVertices();
         unsigned int numE = plannerData.numEdges();
 
+
         const std::shared_ptr<ompl_interface::ModelBasedStateSpace> ompl_state_space = context->getOMPLStateSpace();
 
         double NODE_SIZE = 0.0008;
@@ -347,7 +350,7 @@ namespace moveit_ompl_visualiser {
             int edgeList_size = plannerData.getEdges(i, edgeList);
 
 //            std_msgs::ColorRGBA color_node_= color(0, .8, 0);
-            std_msgs::ColorRGBA color_roadmap= color(0.6, .8, 1.);
+            std_msgs::ColorRGBA color_roadmap= color(0.6, .8, 1., alpha);
 
             for (int j = 0; j < edgeList_size; j++) {
                 visualization_msgs::Marker line_list = marker_template_("created edges");
@@ -402,6 +405,8 @@ namespace moveit_ompl_visualiser {
         }
         if (!check_guard(false))
             return;
+
+        return;
 
         // remove previously displayed markers
         if (last_vis_arr_) {

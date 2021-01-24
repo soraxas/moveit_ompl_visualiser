@@ -46,6 +46,8 @@ namespace moveit_ompl_visualiser {
 
     void set_context(ompl_interface::ModelBasedPlanningContext *context);
 
+    extern Colour EDGE_DEFAULT_COLOUR;
+
     void show_planner_data(double alpha=1.0, ompl_interface::ModelBasedPlanningContext *context=nullptr);
     inline void show_planner_data(ompl_interface::ModelBasedPlanningContext *context) {
         show_planner_data(1.0, context);
@@ -54,7 +56,16 @@ namespace moveit_ompl_visualiser {
     void show_node(const ompl::base::State *, double NODE_SIZE=0.005, double time_to_live=0, double r=0., double g=1., double b=.8);
     void show_sampled_state(const ompl::base::State * state);
     void show_sampled_robot_state(const ompl::base::State * state);
-    void show_edge(const ompl::base::State*, const ompl::base::State*, double edge_size=0.008, Colour c=Colour(0, .5, .5));
+    void show_edge(const ompl::base::State*, const ompl::base::State*, double edge_size=0.008, const Colour c=EDGE_DEFAULT_COLOUR);
+
+    template<class T>
+    void show_edges(const std::vector<T *> &container, Colour c = EDGE_DEFAULT_COLOUR) {
+        for (auto &motion : container) {
+            if (motion->parent)
+                moveit_ompl_visualiser::show_edge(motion->parent->state, motion->state, .008, c);
+        }
+    }
+
 
     template<class T>
     void show_edge(const T t) {

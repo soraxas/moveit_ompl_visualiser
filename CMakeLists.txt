@@ -12,9 +12,15 @@ find_package(catkin REQUIRED COMPONENTS
         rosconsole
         moveit_visual_tools
         moveit_ros_planning_interface
-        moveit_planners_ompl
+        #moveit_planners_ompl
         )
 
+execute_process(
+  COMMAND python "../../get_include_dirs.py" --as-list
+  OUTPUT_VARIABLE include_dirs
+)
+include_directories(${include_dirs})
+include_directories("../../devel_debug/include/")
 
 
 ## System dependencies are found with CMake's conventions
@@ -187,12 +193,6 @@ install(
     ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )
 
-message("_____________${CMAKE_CURRENT_SOURCE_DIR}")
-message("_____________${CMAKE_SOURCE_DIR}")
-message("_  ____________${CMAKE_BINARY_DIR}")
-message("_  ____________${CMAKE_BINARY_DIR}/${PROJECT_NAME}/${CMAKE_INSTALL_LIBDIR}")
-message("_  ____________${CMAKE_BINARY_DIR}/${PROJECT_NAME}/${CMAKE_INSTALL_LIBDIR}")
-message("_  ____________${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_INCLUDE_DESTINATION}")
 
 set(package_header_input_h "${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}.h")
 set(package_header_output_h "${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_INCLUDE_DESTINATION}/${PROJECT_NAME}.h")
