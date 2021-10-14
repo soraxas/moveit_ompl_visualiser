@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
         )
 
 execute_process(
-  COMMAND python "../../get_include_dirs.py" --as-list
+  COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../../get_include_dirs.py" --as-list
   OUTPUT_VARIABLE include_dirs
 )
 include_directories(${include_dirs})
